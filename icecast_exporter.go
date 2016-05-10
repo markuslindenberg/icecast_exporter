@@ -95,7 +95,7 @@ func NewExporter(uri string, timeout time.Duration) *Exporter {
 		jsonParseFailures: prometheus.NewCounter(prometheus.CounterOpts{
 			Namespace: namespace,
 			Name:      "exporter_json_parse_failures",
-			Help:      "Number of errors while parsing CSV.",
+			Help:      "Number of errors while parsing JSON.",
 		}),
 		serverStart: prometheus.NewGauge(prometheus.GaugeOpts{
 			Namespace: namespace,
