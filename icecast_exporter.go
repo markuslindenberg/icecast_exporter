@@ -15,8 +15,10 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"flag"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
@@ -53,17 +55,29 @@ func (ts *ISO8601) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+type IcecastStatusSource struct {
+	Listeners   int     `json:"listeners"`
+	Listenurl   string  `json:"listenurl"`
+	ServerType  string  `json:"server_type"`
+	StreamStart ISO8601 `json:"stream_start_iso8601"`
+}
+
+// JSON structure if zero or multiple streams active
 type IcecastStatus struct {
 	Icestats struct {
-		ServerStart ISO8601 `json:"server_start_iso8601"`
-		Source      []struct {
-			Listeners   int     `json:"listeners"`
-			Listenurl   string  `json:"listenurl"`
-			ServerType  string  `json:"server_type"`
-			StreamStart ISO8601 `json:"stream_start_iso8601"`
-		} `json:"source"`
+		ServerStart ISO8601					`json:"server_start_iso8601"`
+		Source      []IcecastStatusSource 	`json:"source,omitifempty"`
 	} `json:"icestats"`
 }
+
+// JSON structure if exactly one stream active
+type IcecastStatusSingle struct {
+	Icestats struct {
+		ServerStart ISO8601 				`json:"server_start_iso8601"`
+		Source      IcecastStatusSource 	`json:"source"`
+	} `json:"icestats"`
+}
+
 
 // Exporter collects Icecast stats from the given URI and exports them using
 // the prometheus metrics package.
@@ -182,13 +196,35 @@ func (e *Exporter) scrape(status chan<- *IcecastStatus) {
 	}
 	defer resp.Body.Close()
 	e.up.Set(1)
-
-	var s IcecastStatus
-	err = json.NewDecoder(resp.Body).Decode(&s)
+	
+	// Copy response body into intermediate buffer,
+	// so we can deserialize twice
+	bodyBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		log.Errorf("Can't read JSON: %v", err)
-		e.jsonParseFailures.Inc()
+		e.up.Set(0)
+		log.Errorf("Can't ready response body: %v", err)
 		return
+	}
+	
+	buf := bytes.NewBuffer(bodyBytes)
+	var s IcecastStatus
+	err = json.NewDecoder(buf).Decode(&s)
+
+	if err != nil {
+		// If only a single stream is active, the JSON will
+		// have a different format with "source" being an object
+		buf := bytes.NewBuffer(bodyBytes)
+		var s2 IcecastStatusSingle
+		err = json.NewDecoder(buf).Decode(&s2)
+		if err != nil {
+			log.Errorf("Can't read JSON: %v", err)
+			e.jsonParseFailures.Inc()
+			return
+		}
+		
+		// Copy over to staus object
+		s.Icestats.ServerStart = s2.Icestats.ServerStart
+		s.Icestats.Source = []IcecastStatusSource{s2.Icestats.Source}
 	}
 
 	status <- &s
