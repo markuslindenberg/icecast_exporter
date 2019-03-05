@@ -1,13 +1,19 @@
-FROM golang:alpine
+FROM golang:alpine AS build
 
-RUN mkdir -p /go/src/icecast_exporter
 WORKDIR /go/src/icecast_exporter
+
+RUN apk add --no-cache git
 
 COPY . /go/src/icecast_exporter
 
-RUN apk add --no-cache --virtual .git git ; go-wrapper download ; apk del .git
-RUN go-wrapper install
+RUN go get .
+
+# Final stage
+FROM alpine
+
+COPY --from=build /go/bin/icecast_exporter /icecast_exporter
 
 EXPOSE 9146
 USER nobody
-ENTRYPOINT ["icecast_exporter"]
+ENTRYPOINT ["/icecast_exporter"]
+
