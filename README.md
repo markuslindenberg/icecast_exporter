@@ -28,6 +28,8 @@ go run icecast_exporter --help
 Usage of ./icecast_exporter:
   -icecast.scrape-uri string
     	URI on which to scrape Icecast. (default "http://localhost:8000/status-json.xsl")
+  -icecast.time-format
+      Time format used by Icecast. (defautl "2006-01-02T15:04:05-0700")
   -icecast.timeout duration
     	Timeout for trying to get stats from Icecast. (default 5s)
   -log.format value
