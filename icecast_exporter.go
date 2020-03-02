@@ -76,6 +76,7 @@ type IcecastStatusSource struct {
 	Listeners          int         `json:"listeners"`
 	Listenurl          string      `json:"listenurl"`
 	ServerType         string      `json:"server_type"`
+	SlowListeners      int         `json:"slow_listeners"`
 	StreamStartIso8601 ISO8601     `json:"stream_start_iso8601"`
 	StreamStart        IcecastTime `json:"stream_start"`
 }
@@ -108,6 +109,7 @@ type Exporter struct {
 	totalScrapes, jsonParseFailures prometheus.Counter
 	serverStart                     prometheus.Gauge
 	listeners                       *prometheus.GaugeVec
+	slowListeners                   *prometheus.GaugeVec
 	streamStart                     *prometheus.GaugeVec
 	client                          *http.Client
 }
@@ -140,6 +142,11 @@ func NewExporter(uri string, timeout time.Duration) *Exporter {
 			Namespace: namespace,
 			Name:      "listeners",
 			Help:      "The number of currently connected listeners.",
+		}, labelNames),
+		slowListeners: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: namespace,
+			Name:      "slow_listeners",
+			Help:      "The number of currently connected slow listeners.",
 		}, labelNames),
 		streamStart: prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Namespace: namespace,
@@ -190,6 +197,7 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 		e.serverStart.Set(float64(s.Icestats.ServerStart.Time().Unix()))
 		for _, source := range s.Icestats.Source {
 			e.listeners.WithLabelValues(source.Listenurl, source.ServerType).Set(float64(source.Listeners))
+			e.slowListeners.WithLabelValues(source.Listenurl, source.ServerType).Set(float64(source.SlowListeners))
 			switch timeFormat {
 			case iso8601:
 				e.streamStart.WithLabelValues(source.Listenurl, source.ServerType).Set(float64(source.StreamStartIso8601.Time().Unix()))
@@ -204,6 +212,7 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 	ch <- e.jsonParseFailures
 	ch <- e.serverStart
 	e.listeners.Collect(ch)
+	e.slowListeners.Collect(ch)
 	e.streamStart.Collect(ch)
 }
 
