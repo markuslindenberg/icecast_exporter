@@ -49,7 +49,12 @@ func (ts ISO8601) Time() time.Time {
 }
 
 func (ts *ISO8601) UnmarshalJSON(data []byte) error {
-	parsed, err := time.Parse(`"2006-01-02T15:04:05-0700"`, string(data))
+	s := string(data)
+	if s == "null" || s == `""` {
+		*ts = ISO8601(time.Time{})
+		return nil
+	}
+	parsed, err := time.Parse(`"2006-01-02T15:04:05-0700"`, s)
 	if err != nil {
 		return err
 	}
@@ -64,7 +69,12 @@ func (ts IcecastTime) Time() time.Time {
 }
 
 func (ts *IcecastTime) UnmarshalJSON(data []byte) error {
-	parsed, err := time.Parse(`"`+timeFormat+`"`, string(data))
+	s := string(data)
+	if s == "null" || s == `""` {
+		*ts = IcecastTime(time.Time{})
+		return nil
+	}
+	parsed, err := time.Parse(`"`+timeFormat+`"`, s)
 	if err != nil {
 		return err
 	}
