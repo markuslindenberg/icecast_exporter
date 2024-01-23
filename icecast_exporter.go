@@ -94,9 +94,12 @@ type IcecastStatusSource struct {
 // JSON structure if zero or multiple streams active
 type IcecastStatus struct {
 	Icestats struct {
+		ClientsTotal       int                   `json:"clients"`
+		ListenersTotal     int                   `json:"listeners"`
 		ServerStartIso8601 ISO8601               `json:"server_start_iso8601"`
 		ServerStart        IcecastTime           `json:"server_start"`
 		Source             []IcecastStatusSource `json:"source,omitifempty"`
+		SourcesTotal       int                   `json:"sources"`
 	} `json:"icestats"`
 }
 
@@ -119,6 +122,9 @@ type Exporter struct {
 	totalScrapes, jsonParseFailures prometheus.Counter
 	serverStart                     prometheus.Gauge
 	listeners                       *prometheus.GaugeVec
+	listenersTotal                  prometheus.Gauge
+	clientsTotal                    prometheus.Gauge
+	sourcesTotal                    prometheus.Gauge
 	slowListeners                   *prometheus.GaugeVec
 	streamStart                     *prometheus.GaugeVec
 	client                          *http.Client
@@ -153,6 +159,21 @@ func NewExporter(uri string, timeout time.Duration) *Exporter {
 			Name:      "listeners",
 			Help:      "The number of currently connected listeners.",
 		}, labelNames),
+		listenersTotal: prometheus.NewGauge(prometheus.GaugeOpts{
+			Namespace: namespace,
+			Name:      "listenersTotal",
+			Help:      "The number of currently connected listeners including all radios.",
+		}),
+		clientsTotal: prometheus.NewGauge(prometheus.GaugeOpts{
+			Namespace: namespace,
+			Name:      "clientsTotal",
+			Help:      "The number of currently connected clients including all radios.",
+		}),
+		sourcesTotal: prometheus.NewGauge(prometheus.GaugeOpts{
+			Namespace: namespace,
+			Name:      "sourcesTotal",
+			Help:      "The number of stream sources icecast is connected to.",
+		}),
 		slowListeners: prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Namespace: namespace,
 			Name:      "slow_listeners",
